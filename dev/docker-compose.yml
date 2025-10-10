@@ -1,0 +1,62 @@
+volumes:
+  puma-sock:
+  bundle-gems: 
+
+services:
+  nginx:
+    container_name: rails-nginx
+    build: ./nginx/
+    image: rails-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+     - ~/git/github/menta/rails:/var/www/app:delegated
+     - puma-sock:/var/run/puma
+     - ./dev-rails.techbull.cloud.pem:/etc/nginx/certs/dev-rails.techbull.cloud.pem:ro
+     - ./dev-rails.techbull.cloud-key.pem:/etc/nginx/certs/dev-rails.techbull.cloud-key.pem:ro
+    tty: true
+    depends_on:
+      - app
+  app:
+    container_name: rails-app
+    build:
+      context: ../../../../github/menta/rails
+      dockerfile: ../../../menta/docker/docker_rails/dev/app/Dockerfile
+    image: rails-app
+    volumes:
+     - ~/git/github/menta/rails:/var/www/app:delegated
+     - puma-sock:/var/run/puma
+     - bundle-gems:/usr/local/bundle 
+    tty: true
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env 
+  
+
+  db:
+    container_name: rails-db
+    build: ./mysql/
+    image: rails-db
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+    env_file:
+      - .env
+     # ホストの db_data は使わず、Docker volume を使う
+    volumes:
+      - ./mysql/db_data:/var/lib/mysql
+
+  redis:
+    container_name: rails-redis
+    image: redis:latest
+    ports:
+      - "6379:6379"
+     # ホストの db_data は使わず、Docker volume を使う
+    volumes:
+      - ./redis/data:/data
